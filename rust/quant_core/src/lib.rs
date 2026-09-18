@@ -81,3 +81,5 @@ pub fn discount_coupons(
         .map(|&(amount, days, rate)| discount_coupon(amount, days, rate))
         .collect()
 }
+
+pub mod path;
