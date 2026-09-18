@@ -12,3 +12,5 @@ results/
 
 # Python package metadata
 *.egg-info/
+
+rust/quant_core/target/
