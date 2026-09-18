@@ -55,6 +55,14 @@ class CoreAdapterTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             parse_core_positions(payload)
 
+    def test_missing_security_code_is_accepted(self):
+        payload = sample_export()
+        payload["data"]["positions"][0]["security_code"] = None
+
+        result = parse_core_positions(payload)
+
+        self.assertIsNone(result.positions[0].security_code)
+
     def test_wrong_command_is_rejected(self):
         payload = sample_export()
         payload["command"] = "portfolio.summary"

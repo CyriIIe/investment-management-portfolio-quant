@@ -10,7 +10,7 @@ import json
 @dataclass(frozen=True)
 class Position:
     isin: str
-    security_code: str
+    security_code: str | None
     market_section: str
     currency: str
     quantity: Decimal
@@ -99,8 +99,10 @@ def parse_core_positions(payload: dict) -> PortfolioSnapshot:
         if not isinstance(isin, str) or len(isin) != 12:
             raise ValueError(f"Position {index}: invalid ISIN")
 
-        if not isinstance(code, str) or not code.strip():
-            raise ValueError(f"Position {index}: missing security code")
+        if code is not None and not isinstance(code, str):
+            raise ValueError(f"Position {index}: invalid security code")
+        if isinstance(code, str) and not code.strip():
+            code = None
 
         if not isinstance(section, str) or not section.strip():
             raise ValueError(f"Position {index}: missing market section")
