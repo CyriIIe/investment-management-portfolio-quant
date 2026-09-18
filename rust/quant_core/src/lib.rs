@@ -68,3 +68,16 @@ mod tests {
         assert!(discount_coupon(100.0, 365, -0.01).is_err());
     }
 }
+
+/// Discount a batch of known coupons using the same validated formula.
+///
+/// Each tuple contains (gross amount, days until payment, annual rate).
+/// Returns an error if any input is invalid; no partial result is returned.
+pub fn discount_coupons(
+    coupons: &[(f64, u32, f64)],
+) -> Result<Vec<f64>, &'static str> {
+    coupons
+        .iter()
+        .map(|&(amount, days, rate)| discount_coupon(amount, days, rate))
+        .collect()
+}
