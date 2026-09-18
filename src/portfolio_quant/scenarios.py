@@ -5,7 +5,7 @@ from datetime import timedelta
 from decimal import Decimal, InvalidOperation
 
 from portfolio_quant.cashflow_adapter import CashflowRun
-from portfolio_quant.rust_bridge import MAX_COUPONS, discount_batch_rust
+from portfolio_quant.grid_bridge import MAX_GRID_SIZE, discount_grid_rust
 
 
 @dataclass(frozen=True)
@@ -62,7 +62,7 @@ def calculate_coupon_scenarios(
     if len(set(rates)) != len(rates):
         raise ValueError("Duplicate scenario rates")
 
-    if len(run.events) * len(rates) > MAX_COUPONS:
+    if len(run.events) * len(rates) > MAX_GRID_SIZE:
         raise ValueError("Scenario grid exceeds Rust batch limit")
 
     horizon_end = run.portfolio_date + timedelta(days=run.horizon_days)
@@ -86,42 +86,41 @@ def calculate_coupon_scenarios(
 
         coupons.append((event.gross_amount, days, event.currency))
 
-    # One Rust process for the entire scenario grid.
-    batch = [
-        (amount, days, rate)
-        for rate in rates
-        for amount, days, _currency in coupons
+    # Group coupons by currency: never combine monetary units.
+    by_currency: dict[str, list[tuple[Decimal, int]]] = {}
+
+    for amount, days, currency in coupons:
+        by_currency.setdefault(currency, []).append((amount, days))
+
+    totals_by_rate: list[dict[str, Decimal]] = [
+        {} for _ in rates
     ]
 
-    values = discount_batch_rust(batch)
-
-    if len(values) != len(batch):
-        raise ValueError("Incomplete Rust scenario result")
-
-    scenarios = []
-    count = len(coupons)
-
-    for scenario_index, rate in enumerate(rates):
-        totals: dict[str, Decimal] = {}
-        start = scenario_index * count
-        end = start + count
-
-        for (_amount, _days, currency), value in zip(
-            coupons, values[start:end]
-        ):
-            totals[currency] = totals.get(currency, Decimal("0")) + value
-
-        scenarios.append(
-            CouponScenario(
-                annual_rate=rate,
-                present_value_by_currency=totals,
-            )
+    # Compact Rust protocol: one process per currency, one total per rate.
+    for currency, currency_coupons in sorted(by_currency.items()):
+        currency_totals = discount_grid_rust(
+            currency_coupons,
+            rates,
         )
+
+        if len(currency_totals) != len(rates):
+            raise ValueError("Incomplete Rust scenario result")
+
+        for index, value in enumerate(currency_totals):
+            totals_by_rate[index][currency] = value
+
+    scenarios = [
+        CouponScenario(
+            annual_rate=rate,
+            present_value_by_currency=totals,
+        )
+        for rate, totals in zip(rates, totals_by_rate)
+    ]
 
     return CouponScenarioGrid(
         portfolio_date=run.portfolio_date.isoformat(),
         cashflow_run_id=run.run_id,
-        event_count=count,
+        event_count=len(coupons),
         coupon_coverage_pct=run.coupon_coverage_pct,
         unknown_schedule_count=run.unknown_schedule_count,
         scenarios=tuple(scenarios),
