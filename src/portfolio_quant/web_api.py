@@ -9,6 +9,7 @@ from portfolio_quant.web_rates import read_rates
 from portfolio_quant.web_overview import read_overview
 from portfolio_quant.web_static import read_static
 from portfolio_quant.web_weather import read_weather
+from portfolio_quant.web_changes import read_changes
 
 
 HOST = "127.0.0.1"
@@ -37,6 +38,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
             reader = read_rates
         elif route == "/api/weather":
             reader = read_weather
+        elif route == "/api/changes":
+            reader = read_changes
         else:
             try:
                 content_type, body = read_static(route)
