@@ -12,7 +12,10 @@ from unittest.mock import patch
 from portfolio_quant.cashflow_adapter import CashflowRun
 from portfolio_quant.core_adapter import PortfolioSnapshot
 from portfolio_quant.core_readonly import CoreInputs
-from portfolio_quant.experimental_cycle import prepare_experimental_cycle
+from portfolio_quant.experimental_cycle import (
+    identify_experimental_cycle,
+    prepare_experimental_cycle,
+)
 
 
 HASHES = {
@@ -110,6 +113,27 @@ class ExperimentalCycleTests(unittest.TestCase):
         self.assertFalse(prepared.results["calibrated_to_market"])
         self.assertFalse(prepared.results["complete_portfolio_valuation"])
         self.assertFalse(prepared.results["portfolio_risk_measure"])
+
+    def test_identification_does_not_generate_paths_or_call_rust(self):
+        expected = self.prepare().identity_sha256
+
+        with (
+            patch(
+                "portfolio_quant.experimental_cycle.generate_rate_paths"
+            ) as generate,
+            patch(
+                "portfolio_quant.experimental_cycle.calculate_known_coupon_paths"
+            ) as calculate,
+        ):
+            identity = identify_experimental_cycle(
+                self.inputs,
+                rust_binary=self.binary,
+                **HASHES,
+            )
+
+        self.assertEqual(identity, expected)
+        generate.assert_not_called()
+        calculate.assert_not_called()
 
     def test_same_inputs_produce_same_identity(self):
         self.assertEqual(

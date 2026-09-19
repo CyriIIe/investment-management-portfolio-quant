@@ -18,7 +18,7 @@ class PreparedCycle:
     results: dict
 
 
-def prepare_experimental_cycle(
+def _identify_cycle(
     core_inputs: CoreInputs,
     *,
     cashflow_input_sha256: str,
@@ -29,8 +29,8 @@ def prepare_experimental_cycle(
     monthly_volatility: str = "0.005",
     path_count: int = 10,
     seed: int = 42,
-) -> PreparedCycle:
-    """Run fictional known-coupon calculations; do not persist anything."""
+) -> tuple[str, str]:
+    """Return the identity and binary hash without simulating."""
     if not isinstance(core_inputs, CoreInputs):
         raise ValueError("Expected validated CORE inputs")
 
@@ -57,6 +57,63 @@ def prepare_experimental_cycle(
         path_count=path_count,
         seed=seed,
     )
+
+    return identity, binary_hash
+
+
+def identify_experimental_cycle(
+    core_inputs: CoreInputs,
+    *,
+    cashflow_input_sha256: str,
+    cashflow_result_sha256: str,
+    cashflow_policy_sha256: str,
+    rust_binary: Path = PATHS_BINARY,
+    initial_rate: str = "0.10",
+    monthly_volatility: str = "0.005",
+    path_count: int = 10,
+    seed: int = 42,
+) -> str:
+    """Identify a cycle without generating trajectories or invoking Rust."""
+    identity, _ = _identify_cycle(
+        core_inputs,
+        cashflow_input_sha256=cashflow_input_sha256,
+        cashflow_result_sha256=cashflow_result_sha256,
+        cashflow_policy_sha256=cashflow_policy_sha256,
+        rust_binary=rust_binary,
+        initial_rate=initial_rate,
+        monthly_volatility=monthly_volatility,
+        path_count=path_count,
+        seed=seed,
+    )
+    return identity
+
+
+def prepare_experimental_cycle(
+    core_inputs: CoreInputs,
+    *,
+    cashflow_input_sha256: str,
+    cashflow_result_sha256: str,
+    cashflow_policy_sha256: str,
+    rust_binary: Path = PATHS_BINARY,
+    initial_rate: str = "0.10",
+    monthly_volatility: str = "0.005",
+    path_count: int = 10,
+    seed: int = 42,
+) -> PreparedCycle:
+    """Run fictional known-coupon calculations; do not persist anything."""
+    identity, binary_hash = _identify_cycle(
+        core_inputs,
+        cashflow_input_sha256=cashflow_input_sha256,
+        cashflow_result_sha256=cashflow_result_sha256,
+        cashflow_policy_sha256=cashflow_policy_sha256,
+        rust_binary=rust_binary,
+        initial_rate=initial_rate,
+        monthly_volatility=monthly_volatility,
+        path_count=path_count,
+        seed=seed,
+    )
+    snapshot = core_inputs.snapshot
+    cashflows = core_inputs.cashflows
 
     simulation = generate_rate_paths(
         initial_rate=initial_rate,
