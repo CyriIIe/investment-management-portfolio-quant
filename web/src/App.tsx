@@ -3,6 +3,7 @@ import CyclesPanel from './CyclesPanel'
 import WeatherPanel from './WeatherPanel'
 import ChangesPanel from './ChangesPanel'
 import AllocationPanel from './AllocationPanel'
+import ExperimentalPilotPanel from './ExperimentalPilotPanel'
 import RatesPanel from './RatesPanel'
 import MethodologyPanel from './MethodologyPanel'
 import './App.css'
@@ -271,6 +272,7 @@ function App() {
               <WeatherPanel refreshKey={refresh} />
               <ChangesPanel refreshKey={refresh} />
               <AllocationPanel refreshKey={refresh} />
+              <ExperimentalPilotPanel refreshKey={refresh} />
             </>
           ) : section === 'Cycles' ? (
             <CyclesPanel refreshKey={refresh} />
