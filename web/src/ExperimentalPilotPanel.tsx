@@ -90,10 +90,11 @@ function isResponse(value: unknown): value is Response {
     v.historical_backtest_validated === false &&
     v.portfolio_risk_measure === false &&
     Array.isArray(v.instruments) &&
-    v.instruments.length === 2 &&
+    v.instruments.length > 0 &&
     v.instruments.every(isPilot) &&
-    v.instruments[0].instrument_isin === 'RU000A10D4Y2' &&
-    v.instruments[1].instrument_isin === 'RU000A10F801'
+    new Set(
+      v.instruments.map((item: Pilot) => item.instrument_isin)
+    ).size === v.instruments.length
   )
 }
 

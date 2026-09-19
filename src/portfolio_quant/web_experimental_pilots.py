@@ -5,6 +5,8 @@ import json
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
+from portfolio_quant.experimental_registry import validate_registry
+
 from portfolio_quant.web_experimental_pilot import (
     RESEARCH,
     read_experimental_pilot,
@@ -211,10 +213,9 @@ def _read_gtlk():
     }
 
 
-def read_experimental_pilots() -> dict:
-    """Both instruments must validate before either is exposed."""
+
+def _read_ofz():
     ofz = read_experimental_pilot()
-    gtlk = _read_gtlk()
 
     if (
         ofz["instrument_isin"] != "RU000A10D4Y2"
@@ -223,19 +224,62 @@ def read_experimental_pilots() -> dict:
     ):
         raise ValueError("Unexpected OFZ pilot")
 
-    ofz = {
+    return {
         **ofz,
-        "instrument_label": "OFZ 26252",
-        "coupon_type": "FIXED_KNOWN",
         "principal_event_count": 1,
         "received_coupon_rub_per_bond":
             ofz["scenarios"][0]["received_through_horizon_rub_per_bond"],
         "received_principal_rub_per_bond": "0",
     }
 
+
+# Only explicitly registered, instrument-specific validated readers may run.
+READERS = {
+    "ofz": _read_ofz,
+    "gtlk": _read_gtlk,
+}
+
+
+def read_experimental_pilots() -> dict:
+    """Expose validated registered pilots, never undiscovered files."""
+    instruments = []
+
+    for registration in validate_registry():
+        reader = READERS.get(registration.reader_name)
+        if reader is None:
+            raise ValueError("Unimplemented experimental pilot reader")
+
+        result = reader()
+
+        if (
+            result.get("instrument_isin") != registration.isin
+            or result.get("status") != "EXPERIMENTAL"
+            or result.get("historical_backtest_validated") is not False
+            or result.get("portfolio_risk_measure") is not False
+        ):
+            raise ValueError("Experimental pilot does not match registry")
+
+        if (
+            "instrument_label" in result
+            and result["instrument_label"] != registration.label
+        ):
+            raise ValueError("Experimental pilot label mismatch")
+
+        if (
+            "coupon_type" in result
+            and result["coupon_type"] != registration.coupon_type
+        ):
+            raise ValueError("Experimental pilot type mismatch")
+
+        instruments.append({
+            **result,
+            "instrument_label": registration.label,
+            "coupon_type": registration.coupon_type,
+        })
+
     return {
         "status": "EXPERIMENTAL",
-        "instruments": [ofz, gtlk],
+        "instruments": instruments,
         "historical_backtest_validated": False,
         "portfolio_risk_measure": False,
     }
