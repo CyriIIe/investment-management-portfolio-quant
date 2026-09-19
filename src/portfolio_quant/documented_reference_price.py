@@ -27,6 +27,35 @@ def _number(value, name):
     return number
 
 
+def market_observation_reference_price(
+    validated: DocumentedBondFlows,
+    *,
+    close,
+    accrued_interest,
+    nominal=None,
+) -> tuple[Decimal, str]:
+    """Apply the documented quotation convention to a newer observation."""
+    if not isinstance(validated, DocumentedBondFlows):
+        raise ValueError("Validated document required")
+    close_value = _number(close, "MOEX close")
+    if close_value <= 0 or close_value > 1000:
+        raise ValueError("MOEX close outside supported range")
+    quoted_nominal = validated.face_value if nominal is None else _number(
+        nominal, "remaining nominal"
+    )
+    if quoted_nominal <= 0:
+        raise ValueError("Remaining nominal must be positive")
+    quoted = quoted_nominal * close_value / Decimal("100")
+    if validated.coupon_type == "DISCOUNT_NO_COUPON":
+        if accrued_interest is not None:
+            raise ValueError("Discount bond ACCINT must remain missing")
+        return quoted, DISCOUNT_BASIS
+    accrued = _number(accrued_interest, "MOEX ACCINT")
+    if accrued < 0:
+        raise ValueError("Negative accrued interest")
+    return quoted + accrued, COUPON_BASIS
+
+
 def documented_reference_price(
     document: dict,
     validated: DocumentedBondFlows,
@@ -61,8 +90,6 @@ def documented_reference_price(
     if core_close is None or _number(core_close, "CORE close") != close:
         raise ValueError("MOEX close does not reconcile with CORE")
 
-    quoted = validated.face_value * close / Decimal("100")
-
     if validated.coupon_type == "DISCOUNT_NO_COUPON":
         if (
             instrument.get("coupon_frequency_per_year") != 0
@@ -76,11 +103,13 @@ def documented_reference_price(
             or core_accint is not None
         ):
             raise ValueError("Discount-bond quotation convention not proven")
-        return quoted, DISCOUNT_BASIS
+        return market_observation_reference_price(
+            validated, close=close, accrued_interest=core_accint
+        )
 
     accrued = _number(market.get("accrued_interest"), "MOEX ACCINT")
-    if accrued < 0:
-        raise ValueError("Negative accrued interest")
     if core_accint is None or _number(core_accint, "CORE ACCINT") != accrued:
         raise ValueError("MOEX ACCINT does not reconcile with CORE")
-    return quoted + accrued, COUPON_BASIS
+    return market_observation_reference_price(
+        validated, close=close, accrued_interest=core_accint
+    )

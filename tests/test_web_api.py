@@ -83,6 +83,29 @@ class WebApiTests(unittest.TestCase):
         read.assert_called_once_with()
         handler._respond.assert_called_once_with(200, expected)
 
+    def test_experimental_weather_route_is_read_only(self):
+        expected = {"status": "EXPERIMENTAL", "modeled_instrument_count": 3}
+        handler = self.make_handler(path="/api/experimental-weather")
+
+        with patch.object(
+            web_api, "read_experimental_weather", return_value=expected
+        ) as read:
+            handler.do_GET()
+
+        read.assert_called_once_with()
+        handler._respond.assert_called_once_with(200, expected)
+
+    def test_experimental_weather_failure_does_not_start_a_refresh(self):
+        handler = self.make_handler(path="/api/experimental-weather")
+        with patch.object(
+            web_api, "read_experimental_weather", side_effect=RuntimeError()
+        ) as read:
+            handler.do_GET()
+        read.assert_called_once_with()
+        handler._respond.assert_called_once_with(
+            503, {"error": "Overview unavailable"}
+        )
+
     def test_weather_failure_does_not_expose_exception(self):
         handler = self.make_handler(path="/api/weather")
 
