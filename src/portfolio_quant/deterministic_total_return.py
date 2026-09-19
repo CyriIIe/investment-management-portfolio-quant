@@ -23,6 +23,7 @@ class BondCase:
     fixed_coupon_verified: bool
     complete_schedule_verified: bool
     primary_board_verified: bool
+    zero_coupon_verified: bool = False
 
 
 @dataclass(frozen=True)
@@ -61,7 +62,10 @@ def calculate_total_return(
         raise ValueError("Expected a BondCase")
 
     if (
-        bond.fixed_coupon_verified is not True
+        (
+            bond.fixed_coupon_verified is not True
+            and bond.zero_coupon_verified is not True
+        )
         or bond.complete_schedule_verified is not True
         or bond.primary_board_verified is not True
     ):
@@ -108,6 +112,16 @@ def calculate_total_return(
 
     if principal_sum != principal:
         raise ValueError("Principal schedule does not match remaining principal")
+
+    coupon_present = any(
+        flow.kind == "COUPON" for flow in bond.flows
+    )
+    if bond.fixed_coupon_verified is True and bond.zero_coupon_verified is True:
+        raise ValueError("Conflicting coupon classifications")
+    if bond.zero_coupon_verified is True and coupon_present:
+        raise ValueError("Zero-coupon bond has coupon flows")
+    if bond.fixed_coupon_verified is True and not coupon_present:
+        raise ValueError("Fixed-coupon bond has no coupons")
 
     if not any(day >= bond.horizon_date for day, _ in checked_flows):
         raise ValueError("Horizon extends beyond all contractual flows")
