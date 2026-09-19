@@ -14,6 +14,10 @@ type Changes = {
   unchanged_count: number
   portfolio_risk_measure: boolean
   performance_measure: boolean
+  explanations: {
+    observations: string[]
+    limitations: string[]
+  }
 }
 
 const countFields = [
@@ -27,6 +31,14 @@ const countFields = [
   'source_only_changed_count',
   'unchanged_count',
 ] as const
+
+function isTextList(value: unknown): value is string[] {
+  return (
+    Array.isArray(value) &&
+    value.length > 0 &&
+    value.every((item) => typeof item === 'string')
+  )
+}
 
 function isChanges(value: unknown): value is Changes {
   if (value === null || typeof value !== 'object') return false
@@ -42,7 +54,15 @@ function isChanges(value: unknown): value is Changes {
       Number.isSafeInteger(data[field]) && (data[field] as number) >= 0
     ) &&
     data.performance_measure === false &&
-    data.portfolio_risk_measure === false
+    data.portfolio_risk_measure === false &&
+    data.explanations !== null &&
+    typeof data.explanations === 'object' &&
+    isTextList(
+      (data.explanations as Record<string, unknown>).observations
+    ) &&
+    isTextList(
+      (data.explanations as Record<string, unknown>).limitations
+    )
   )
 }
 
@@ -150,6 +170,23 @@ export default function ChangesPanel({ refreshKey }: { refreshKey: number }) {
             Les variations de valeur et d’intérêts courus peuvent concerner
             les mêmes positions : ces décomptes ne s’additionnent pas.
             Aucune mesure de performance ou de risque global n’est disponible.
+          </div>
+          <h3>Ce que nous observons</h3>
+          <div className="cycles-list">
+            {data.explanations.observations.map((observation, index) => (
+              <div className="cycle-entry" key={index}>
+                {observation}
+              </div>
+            ))}
+          </div>
+
+          <h3>Ce que cette comparaison ne permet pas de conclure</h3>
+          <div className="cycles-list">
+            {data.explanations.limitations.map((limitation, index) => (
+              <div className="cycle-entry" key={index}>
+                {limitation}
+              </div>
+            ))}
           </div>
         </>
       )}

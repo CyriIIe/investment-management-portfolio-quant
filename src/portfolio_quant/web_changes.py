@@ -1,5 +1,6 @@
 """Aggregate portfolio changes from read-only CORE snapshots."""
 
+from portfolio_quant.change_explanations import explain_changes
 from portfolio_quant.core_history import load_previous_historical_snapshot
 from portfolio_quant.core_readonly import load_core_inputs
 from portfolio_quant.portfolio_changes import compare_portfolio_snapshots
@@ -10,6 +11,7 @@ def read_changes() -> dict:
     current = load_core_inputs().snapshot
     previous = load_previous_historical_snapshot(current.as_of_date)
     changes = compare_portfolio_snapshots(previous, current)
+    explanations = explain_changes(changes)
 
     return {
         "previous_date": changes.previous_date,
@@ -29,4 +31,8 @@ def read_changes() -> dict:
         "unchanged_count": changes.unchanged_count,
         "portfolio_risk_measure": changes.portfolio_risk_measure,
         "performance_measure": changes.performance_measure,
+        "explanations": {
+            "observations": list(explanations.observations),
+            "limitations": list(explanations.limitations),
+        },
     }
