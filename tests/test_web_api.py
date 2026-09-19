@@ -1,0 +1,82 @@
+"""Offline tests for the local dashboard HTTP handler."""
+
+import unittest
+from unittest.mock import Mock, patch
+
+from portfolio_quant import web_api
+
+
+class WebApiTests(unittest.TestCase):
+    def make_handler(self, *, host="127.0.0.1:8765", path="/api/overview"):
+        # Construct a handler without opening a network socket.
+        handler = object.__new__(web_api.DashboardHandler)
+        handler.headers = {"Host": host}
+        handler.path = path
+        handler._respond = Mock()
+        return handler
+
+    def test_overview_returns_aggregates(self):
+        expected = {
+            "cycles": {"count": 1},
+            "key_rates": {"observation_count": 33},
+            "model": {"calibrated_to_market": False},
+        }
+        handler = self.make_handler()
+
+        with patch.object(web_api, "read_overview", return_value=expected) as read:
+            handler.do_GET()
+
+        read.assert_called_once_with()
+        handler._respond.assert_called_once_with(200, expected)
+
+    def test_unexpected_host_is_refused_before_database_read(self):
+        handler = self.make_handler(host="example.com:8765")
+
+        with patch.object(web_api, "read_overview") as read:
+            handler.do_GET()
+
+        read.assert_not_called()
+        handler._respond.assert_called_once_with(
+            403, {"error": "Forbidden"}
+        )
+
+    def test_unknown_route_does_not_read_database(self):
+        handler = self.make_handler(path="/api/positions")
+
+        with patch.object(web_api, "read_overview") as read:
+            handler.do_GET()
+
+        read.assert_not_called()
+        handler._respond.assert_called_once_with(
+            404, {"error": "Not found"}
+        )
+
+    def test_database_failure_does_not_expose_exception(self):
+        handler = self.make_handler()
+
+        with patch.object(
+            web_api,
+            "read_overview",
+            side_effect=RuntimeError("private database details"),
+        ):
+            handler.do_GET()
+
+        handler._respond.assert_called_once_with(
+            503, {"error": "Overview unavailable"}
+        )
+
+    def test_query_string_does_not_change_route(self):
+        handler = self.make_handler(path="/api/overview?refresh=1")
+
+        with patch.object(
+            web_api, "read_overview", return_value={"cycles": {"count": 0}}
+        ):
+            handler.do_GET()
+
+        handler._respond.assert_called_once_with(
+            200, {"cycles": {"count": 0}}
+        )
+
+
+if __name__ == "__main__":
+    unittest.main()
