@@ -1,13 +1,15 @@
 import { useEffect, useState } from 'react'
 import CyclesPanel from './CyclesPanel'
+import WeatherPanel from './WeatherPanel'
 import RatesPanel from './RatesPanel'
 import MethodologyPanel from './MethodologyPanel'
 import './App.css'
 
-type Section = 'Vue d’ensemble' | 'Cycles' | 'Données' | 'Méthodologie'
+type Section = 'Vue d’ensemble' | 'Météo' | 'Cycles' | 'Données' | 'Méthodologie'
 
 const sections: Section[] = [
   'Vue d’ensemble',
+  'Météo',
   'Cycles',
   'Données',
   'Méthodologie',
@@ -15,6 +17,7 @@ const sections: Section[] = [
 
 const navigationIcons: Record<Section, string> = {
   'Vue d’ensemble': '◫',
+  'Météo': '☁',
   'Cycles': '◎',
   'Données': '▤',
   'Méthodologie': '◇',
@@ -146,7 +149,9 @@ function App() {
               <p className="page-description">
                 {section === 'Vue d’ensemble'
                   ? 'Une vue claire de l’infrastructure quantitative et de ses prochaines étapes.'
-                  : section === 'Cycles'
+                  : section === 'Météo'
+                    ? 'Photographie du portefeuille, couverture des flux et informations manquantes.'
+                    : section === 'Cycles'
                     ? 'Historique et traçabilité des calculs expérimentaux.'
                     : section === 'Données'
                       ? 'Sources, fraîcheur et couverture des données.'
@@ -259,6 +264,8 @@ function App() {
                 </section>
               </div>
             </>
+          ) : section === 'Météo' ? (
+            <WeatherPanel refreshKey={refresh} />
           ) : section === 'Cycles' ? (
             <CyclesPanel refreshKey={refresh} />
           ) : section === 'Données' ? (
