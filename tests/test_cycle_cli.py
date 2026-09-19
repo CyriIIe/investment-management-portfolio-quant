@@ -160,6 +160,20 @@ class CycleCliTests(unittest.TestCase):
 
         cycle_cli.load_core_inputs.assert_not_called()
 
+    def test_concurrent_apply_is_refused_before_core_read(self):
+        from portfolio_quant.cycle_lock import exclusive_cycle_lock
+
+        with exclusive_cycle_lock(self.quant_dir):
+            with self.assertRaisesRegex(RuntimeError, "already running"):
+                self.run_cli(apply=True)
+
+        cycle_cli.load_core_inputs.assert_not_called()
+        cycle_cli.run_experimental_cycle.assert_not_called()
+
+    def test_dry_run_does_not_create_lock_file(self):
+        self.assertEqual(self.run_cli(), "DATABASE_MISSING")
+        self.assertFalse((self.quant_dir / "cycles.lock").exists())
+
     def test_invalid_apply_value_is_rejected(self):
         with self.assertRaisesRegex(ValueError, "boolean"):
             self.run_cli(apply="yes")

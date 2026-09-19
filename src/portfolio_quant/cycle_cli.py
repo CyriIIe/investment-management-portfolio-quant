@@ -6,6 +6,7 @@ from contextlib import closing
 from pathlib import Path
 
 from portfolio_quant.core_readonly import CORE_DATABASE, load_core_inputs
+from portfolio_quant.cycle_lock import exclusive_cycle_lock
 from portfolio_quant.cycle_runner import run_experimental_cycle
 from portfolio_quant.cycle_store import experimental_cycle_exists
 from portfolio_quant.experimental_cycle import identify_experimental_cycle
@@ -17,7 +18,7 @@ QUANT_DATA_DIR = (
 CYCLE_DATABASE = QUANT_DATA_DIR / "cycles.sqlite3"
 
 
-def run_manual_cycle(*, apply: bool = False) -> str:
+def _run_manual_cycle_unlocked(*, apply: bool = False) -> str:
     """Identify a cycle, or explicitly run it using an existing Quant DB."""
     if type(apply) is not bool:
         raise ValueError("apply must be a boolean")
@@ -100,6 +101,19 @@ def run_manual_cycle(*, apply: bool = False) -> str:
 
     print("Résultat :", outcome.status)
     return outcome.status
+
+
+
+def run_manual_cycle(*, apply: bool = False) -> str:
+    """Hold the exclusive lock for the entire apply operation."""
+    if type(apply) is not bool:
+        raise ValueError("apply must be a boolean")
+
+    if not apply:
+        return _run_manual_cycle_unlocked(apply=False)
+
+    with exclusive_cycle_lock(QUANT_DATA_DIR):
+        return _run_manual_cycle_unlocked(apply=True)
 
 
 def main() -> None:
