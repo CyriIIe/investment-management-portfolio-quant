@@ -39,6 +39,8 @@ function App() {
   const [section, setSection] = useState<Section>('Vue d’ensemble')
   const [overview, setOverview] = useState<Overview | null>(null)
   const [error, setError] = useState(false)
+  const [refresh, setRefresh] = useState(0)
+  const [lastChecked, setLastChecked] = useState<string | null>(null)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -63,18 +65,20 @@ function App() {
         if (!controller.signal.aborted) {
           setOverview(data)
           setError(false)
+          setLastChecked(new Date().toLocaleTimeString('fr-FR'))
         }
       } catch {
         if (!controller.signal.aborted) {
           setOverview(null)
           setError(true)
+          setLastChecked(null)
         }
       }
     }
 
     void loadOverview()
     return () => controller.abort()
-  }, [])
+  }, [refresh])
 
   return (
     <div className="app-shell">
@@ -146,7 +150,13 @@ function App() {
                       : 'Hypothèses, limites et état de validation du modèle.'}
               </p>
             </div>
-            <span className="read-only-badge">● LECTURE SEULE</span>
+            <div className="heading-actions">
+              <button type="button" className="refresh-button"
+                onClick={() => setRefresh((value) => value + 1)}>
+                ↻ Actualiser
+              </button>
+              <span className="read-only-badge">● LECTURE SEULE</span>
+            </div>
           </div>
 
           <div className="notice">
@@ -157,7 +167,9 @@ function App() {
                 {error
                   ? 'API locale indisponible. Aucun indicateur n’est affiché.'
                   : overview
-                    ? 'Données issues des bases Quant, consultées à l’ouverture de cette page.'
+                    ? lastChecked
+                      ? `Données Quant consultées à ${lastChecked}.`
+                      : 'Données Quant chargées.'
                     : 'Chargement des données depuis l’API locale…'}
               </p>
             </div>
