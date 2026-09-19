@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import AssetCashflowDetails from './AssetCashflowDetails'
+import AssetPriceDetails from './AssetPriceDetails'
 
 type Asset = {
   isin: string
@@ -201,7 +202,17 @@ function AllocationGroup({
           <p>Devise : {group.currency}</p>
           <p>Poids dans cette devise : {Number(selected.weight_pct).toFixed(2)} %</p>
           <p>Photographie du {asOfDate}.</p>
-          <AssetCashflowDetails
+          <AssetPriceDetails
+          key={`price:${asOfDate}:${selected.isin}:${selected.security_code ?? ''}:${selected.market_section}:${group.currency}`}
+          asset={{
+            isin: selected.isin,
+            security_code: selected.security_code,
+            market_section: selected.market_section,
+            currency: group.currency,
+          }}
+          asOfDate={asOfDate}
+        />
+        <AssetCashflowDetails
             key={`${asOfDate}:${selected.isin}:${selected.security_code ?? ''}:${selected.market_section}:${group.currency}`}
             asset={{
               isin: selected.isin,

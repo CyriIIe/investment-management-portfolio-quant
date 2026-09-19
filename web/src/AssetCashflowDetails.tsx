@@ -196,7 +196,7 @@ export default function AssetCashflowDetails({
         {result.next_known_coupon_date ?? 'Aucune date connue'}
       </p>
       <p>
-        Délai depuis la photographie CORE du {asOfDate} :{' '}
+        Délai entre la photographie CORE du {asOfDate} :{' '}
         {result.days_until_next_known_coupon === null
           ? 'Indisponible'
           : `${result.days_until_next_known_coupon} jour(s)`}
