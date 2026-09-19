@@ -8,6 +8,7 @@ from pathlib import Path
 from portfolio_quant.cycle_store import (
     initialize_cycle_store,
     save_experimental_cycle,
+    experimental_cycle_exists,
 )
 
 
@@ -172,6 +173,42 @@ class CycleStoreTests(unittest.TestCase):
             (IDENTITY,),
         ).fetchone()
         self.assertEqual(row, (0, 0, 0))
+
+
+    def test_existing_cycle_is_found_without_writing(self):
+        self.assertTrue(self.save())
+
+        before = self.connection.execute(
+            "SELECT COUNT(*) FROM experimental_cycles"
+        ).fetchone()[0]
+
+        self.assertTrue(
+            experimental_cycle_exists(
+                self.connection,
+                identity_sha256=IDENTITY,
+            )
+        )
+
+        after = self.connection.execute(
+            "SELECT COUNT(*) FROM experimental_cycles"
+        ).fetchone()[0]
+
+        self.assertEqual(before, after)
+
+    def test_missing_cycle_returns_false(self):
+        self.assertFalse(
+            experimental_cycle_exists(
+                self.connection,
+                identity_sha256="b" * 64,
+            )
+        )
+
+    def test_invalid_lookup_identity_is_rejected(self):
+        with self.assertRaises(ValueError):
+            experimental_cycle_exists(
+                self.connection,
+                identity_sha256="invalid",
+            )
 
 
 if __name__ == "__main__":

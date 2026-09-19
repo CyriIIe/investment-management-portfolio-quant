@@ -104,3 +104,22 @@ def save_experimental_cycle(
                 )
 
     return cursor.rowcount == 1
+
+
+def experimental_cycle_exists(
+    connection: sqlite3.Connection,
+    *,
+    identity_sha256: str,
+) -> bool:
+    """Check for an existing cycle; never create or modify records."""
+    identity = _digest(identity_sha256, "cycle identity")
+    row = connection.execute(
+        """
+        SELECT 1
+        FROM experimental_cycles
+        WHERE identity_sha256 = ?
+        LIMIT 1
+        """,
+        (identity,),
+    ).fetchone()
+    return row is not None
