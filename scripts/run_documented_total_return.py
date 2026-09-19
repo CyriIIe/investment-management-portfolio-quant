@@ -12,6 +12,7 @@ from decimal import Decimal
 from pathlib import Path
 
 from portfolio_quant.deterministic_total_return import calculate_total_return
+from portfolio_quant.documented_reference_price import documented_reference_price, DISCOUNT_BASIS, COUPON_BASIS
 from portfolio_quant.documented_bond_flows import (
     build_bond_case,
     parse_documented_bond_flows,
@@ -53,11 +54,6 @@ def reconcile_price(document, validated):
 
     require(CORE.is_file() and not CORE.is_symlink(),
             "Chemin CORE absent ou non conforme")
-    require(
-        market["accrued_interest"] is not None,
-        "ACCINT manquant : prix dirty non vérifiable",
-    )
-
     with closing(sqlite3.connect(
         f"{CORE.as_uri()}?mode=ro", uri=True
     )) as connection:
@@ -110,22 +106,14 @@ def reconcile_price(document, validated):
 
     require(len(prices) == 1, "Prix CORE absent ou ambigu")
     close, accrued = prices[0]
-    require(close is not None and accrued is not None,
-            "Prix ou ACCINT CORE manquant")
-
-    document_close = Decimal(str(market["canonical_close_price_pct"]))
-    document_accrued = Decimal(str(market["accrued_interest"]))
-
-    require(
-        Decimal(str(close)) == document_close
-        and Decimal(str(accrued)) == document_accrued,
-        "Prix documentaire non réconcilié avec CORE",
+    reference_price, price_basis = documented_reference_price(
+        document,
+        validated,
+        core_close=close,
+        core_accint=accrued,
     )
-
-    dirty = validated.face_value * document_close / Decimal("100")
-    dirty += document_accrued
-    require(dirty > 0, "Prix dirty invalide")
-    return dirty
+    require(reference_price > 0, "Prix de référence invalide")
+    return reference_price, price_basis
 
 
 def run(name):
@@ -150,7 +138,7 @@ def run(name):
         "Dates ou disponibilité historique inattendues",
     )
 
-    dirty = reconcile_price(document, validated)
+    dirty, price_basis = reconcile_price(document, validated)
     bond = build_bond_case(
         validated,
         horizon_date=HORIZON,
@@ -209,8 +197,11 @@ def run(name):
         "document_observation_date": validated.observation_date.isoformat(),
         "historical_cashflow_availability": "NOT_PROVEN",
         "historical_backtest_validated": False,
-        "price_basis": "MOEX_LEGALCLOSEPRICE_PLUS_ACCINT",
+        "price_basis": price_basis,
         "dirty_price_rub_per_bond": str(dirty),
+        "reference_price_is_broker_execution_price": False,
+        "source_accint_missing": price_basis == DISCOUNT_BASIS,
+        "reference_price_is_discount_quotation": price_basis == DISCOUNT_BASIS,
         "source_json_sha256": source_hash,
         "coupon_count": validated.coupon_count,
         "principal_event_count": validated.principal_event_count,
