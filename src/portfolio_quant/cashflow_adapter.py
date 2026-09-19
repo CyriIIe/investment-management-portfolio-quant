@@ -13,6 +13,15 @@ class CashflowEvent:
     currency: str
     gross_amount: Decimal
     certainty: str
+    isin: str | None = None
+    secid: str | None = None
+
+
+@dataclass(frozen=True)
+class UnknownSchedule:
+    isin: str | None
+    secid: str | None
+    reasons: tuple[str, ...]
 
 
 @dataclass(frozen=True)
@@ -24,6 +33,7 @@ class CashflowRun:
     coupon_coverage_pct: Decimal
     unknown_schedule_count: int
     horizon_days: int
+    unknown_schedules: tuple[UnknownSchedule, ...] = ()
 
     @property
     def has_complete_cashflows(self) -> bool:
@@ -41,6 +51,19 @@ def _decimal(value, field):
     if not number.is_finite():
         raise ValueError(f"{field}: non-finite decimal")
     return number
+
+
+def _optional_identifier(value, field: str, length: int | None = None):
+    """Preserve an optional source identity without guessing a missing one."""
+    if value is None:
+        return None
+    if (
+        not isinstance(value, str)
+        or not value.strip()
+        or (length is not None and len(value) != length)
+    ):
+        raise ValueError(f"Invalid {field}")
+    return value
 
 
 def parse_core_cashflows(payload, *, expected_snapshot_ids):
@@ -102,6 +125,29 @@ def parse_core_cashflows(payload, *, expected_snapshot_ids):
     if not isinstance(unknown, list):
         raise ValueError("Missing unknown-schedules information")
 
+    unknown_schedules = []
+    for index, item in enumerate(unknown):
+        if not isinstance(item, dict):
+            raise ValueError(f"Unknown schedule {index}: expected an object")
+
+        reasons = item.get("reasons", [])
+        if (
+            not isinstance(reasons, list)
+            or any(
+                not isinstance(reason, str) or not reason.strip()
+                for reason in reasons
+            )
+        ):
+            raise ValueError(f"Unknown schedule {index}: invalid reasons")
+
+        unknown_schedules.append(
+            UnknownSchedule(
+                isin=_optional_identifier(item.get("isin"), "ISIN", 12),
+                secid=_optional_identifier(item.get("secid"), "secid"),
+                reasons=tuple(reasons),
+            )
+        )
+
     horizon = details.get("horizon_days")
     if type(horizon) is not int or horizon <= 0:
         raise ValueError("Invalid cashflow horizon")
@@ -156,6 +202,8 @@ def parse_core_cashflows(payload, *, expected_snapshot_ids):
                 currency=currency,
                 gross_amount=gross,
                 certainty=certainty,
+            isin=_optional_identifier(item.get("isin"), "ISIN", 12),
+            secid=_optional_identifier(item.get("secid"), "secid"),
             )
         )
 
@@ -165,6 +213,7 @@ def parse_core_cashflows(payload, *, expected_snapshot_ids):
         snapshot_ids=frozenset(ids),
         events=tuple(events),
         coupon_coverage_pct=coupon_coverage,
-        unknown_schedule_count=len(unknown),
+        unknown_schedule_count=len(unknown_schedules),
         horizon_days=horizon,
+        unknown_schedules=tuple(unknown_schedules),
     )

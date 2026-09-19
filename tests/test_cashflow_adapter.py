@@ -93,5 +93,53 @@ class CashflowAdapterTests(unittest.TestCase):
             )
 
 
+class IndividualCashflowMetadataTests(unittest.TestCase):
+    def test_event_identity_is_preserved(self):
+        payload = sample_export()
+        payload["data"]["events"][0]["isin"] = "RU000A000001"
+        payload["data"]["events"][0]["secid"] = "TESTBOND"
+
+        result = parse_core_cashflows(
+            payload,
+            expected_snapshot_ids=[101, 102],
+        )
+
+        self.assertEqual(result.events[0].isin, "RU000A000001")
+        self.assertEqual(result.events[0].secid, "TESTBOND")
+
+    def test_incomplete_schedule_identity_and_reasons_are_preserved(self):
+        payload = sample_export()
+        payload["data"]["details"]["unknown_cashflow_schedules"] = [
+            {
+                "isin": "RU000A000002",
+                "secid": "OTHERBOND",
+                "reasons": ["MISSING_COUPON_SCHEDULE"],
+            },
+        ]
+
+        result = parse_core_cashflows(
+            payload,
+            expected_snapshot_ids=[101, 102],
+        )
+
+        unknown = result.unknown_schedules[0]
+        self.assertEqual(unknown.isin, "RU000A000002")
+        self.assertEqual(unknown.secid, "OTHERBOND")
+        self.assertEqual(
+            unknown.reasons,
+            ("MISSING_COUPON_SCHEDULE",),
+        )
+
+    def test_missing_identity_is_not_invented(self):
+        result = parse_core_cashflows(
+            sample_export(),
+            expected_snapshot_ids=[101, 102],
+        )
+
+        self.assertIsNone(result.events[0].isin)
+        self.assertIsNone(result.events[0].secid)
+        self.assertIsNone(result.unknown_schedules[0].isin)
+
+
 if __name__ == "__main__":
     unittest.main()
