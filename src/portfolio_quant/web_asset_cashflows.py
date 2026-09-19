@@ -24,6 +24,16 @@ def read_asset_cashflows() -> dict:
                     else None
                 ),
                 "incomplete_reasons": list(asset.incomplete_reasons),
+                "known_contractual_coupon_count": (
+                    asset.known_contractual_coupon_count
+                ),
+                "next_known_coupon_date": (
+                    asset.next_known_coupon_date.isoformat()
+                    if asset.next_known_coupon_date is not None else None
+                ),
+                "days_until_next_known_coupon": (
+                    asset.days_until_next_known_coupon
+                ),
             }
             for asset in association.assets
         ],

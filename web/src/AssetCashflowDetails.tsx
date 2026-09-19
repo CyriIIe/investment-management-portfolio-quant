@@ -10,6 +10,9 @@ type AssetIdentity = {
 type AssetCashflow = AssetIdentity & {
   known_event_count: number
   next_known_event_date: string | null
+  known_contractual_coupon_count: number
+  next_known_coupon_date: string | null
+  days_until_next_known_coupon: number | null
   incomplete_reasons: string[]
 }
 
@@ -48,6 +51,20 @@ function isAsset(value: unknown): value is AssetCashflow {
     isNonnegativeInteger(asset.known_event_count) &&
     (asset.next_known_event_date === null ||
       isDate(asset.next_known_event_date)) &&
+    isNonnegativeInteger(asset.known_contractual_coupon_count) &&
+    asset.known_contractual_coupon_count <= asset.known_event_count &&
+    (asset.next_known_coupon_date === null ||
+      isDate(asset.next_known_coupon_date)) &&
+    (asset.days_until_next_known_coupon === null ||
+      isNonnegativeInteger(asset.days_until_next_known_coupon)) &&
+    (
+      (asset.next_known_coupon_date === null &&
+        asset.days_until_next_known_coupon === null &&
+        asset.known_contractual_coupon_count === 0) ||
+      (asset.next_known_coupon_date !== null &&
+        asset.days_until_next_known_coupon !== null &&
+        asset.known_contractual_coupon_count > 0)
+    ) &&
     Array.isArray(asset.incomplete_reasons) &&
     asset.incomplete_reasons.every(
       (reason: unknown) => typeof reason === 'string' && reason.length > 0
@@ -169,6 +186,20 @@ export default function AssetCashflowDetails({
       <p>
         Prochain événement connu :{' '}
         {result.next_known_event_date ?? 'Aucune date connue'}
+      </p>
+      <h3>Coupons contractuels connus</h3>
+      <p>
+        Nombre de coupons connus : {result.known_contractual_coupon_count}
+      </p>
+      <p>
+        Prochain coupon connu :{' '}
+        {result.next_known_coupon_date ?? 'Aucune date connue'}
+      </p>
+      <p>
+        Délai depuis la photographie CORE du {asOfDate} :{' '}
+        {result.days_until_next_known_coupon === null
+          ? 'Indisponible'
+          : `${result.days_until_next_known_coupon} jour(s)`}
       </p>
       {result.incomplete_reasons.length > 0 ? (
         <>

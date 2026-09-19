@@ -15,6 +15,9 @@ class AssetCashflowSummary:
     known_event_count: int
     next_known_event_date: date | None
     incomplete_reasons: tuple[str, ...]
+    known_contractual_coupon_count: int = 0
+    next_known_coupon_date: date | None = None
+    days_until_next_known_coupon: int | None = None
 
 
 @dataclass(frozen=True)
@@ -82,6 +85,16 @@ def associate_asset_cashflows(
             (event.event_date for event in matched_events),
             default=None,
         )
+        known_coupons = [
+            event for event in matched_events
+            if event.event_type == "COUPON"
+            and event.certainty == "CONTRACTUAL"
+            and event.event_date > snapshot.as_of_date
+        ]
+        next_coupon_date = min(
+            (event.event_date for event in known_coupons),
+            default=None,
+        )
 
         assets.append(
             AssetCashflowSummary(
@@ -93,6 +106,12 @@ def associate_asset_cashflows(
                 next_known_event_date=next_date,
                 incomplete_reasons=tuple(
                     dict.fromkeys(reasons_by_index[index])
+                ),
+                known_contractual_coupon_count=len(known_coupons),
+                next_known_coupon_date=next_coupon_date,
+                days_until_next_known_coupon=(
+                    (next_coupon_date - snapshot.as_of_date).days
+                    if next_coupon_date is not None else None
                 ),
             )
         )

@@ -135,5 +135,45 @@ class AssetCashflowsTests(unittest.TestCase):
             associate_asset_cashflows(mismatched)
 
 
+class IndividualCouponMetricsTests(unittest.TestCase):
+    def test_coupon_is_distinct_from_earlier_redemption(self):
+        from dataclasses import replace
+
+        known_coupon = coupon("RU000A000001")
+        redemption = replace(
+            known_coupon,
+            event_id=502,
+            event_date=date(2026, 9, 20),
+            event_type="MATURITY_REDEMPTION",
+        )
+
+        result = associate_asset_cashflows(inputs(
+            [position("RU000A000001")],
+            [redemption, known_coupon],
+        ))
+        asset = result.assets[0]
+
+        self.assertEqual(
+            asset.next_known_event_date,
+            date(2026, 9, 20),
+        )
+        self.assertEqual(asset.known_contractual_coupon_count, 1)
+        self.assertEqual(
+            asset.next_known_coupon_date,
+            date(2026, 10, 15),
+        )
+        self.assertEqual(asset.days_until_next_known_coupon, 35)
+
+    def test_no_known_coupon_does_not_invent_a_date(self):
+        result = associate_asset_cashflows(inputs(
+            [position("RU000A000001")],
+        ))
+        asset = result.assets[0]
+
+        self.assertEqual(asset.known_contractual_coupon_count, 0)
+        self.assertIsNone(asset.next_known_coupon_date)
+        self.assertIsNone(asset.days_until_next_known_coupon)
+
+
 if __name__ == "__main__":
     unittest.main()

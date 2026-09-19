@@ -65,11 +65,17 @@ class WebAssetCashflowsTests(unittest.TestCase):
                 "known_event_count",
                 "next_known_event_date",
                 "incomplete_reasons",
+                "known_contractual_coupon_count",
+                "next_known_coupon_date",
+                "days_until_next_known_coupon",
             },
         )
         self.assertEqual(asset["known_event_count"], 2)
         self.assertEqual(asset["next_known_event_date"], "2026-10-15")
         self.assertEqual(asset["incomplete_reasons"], ["MISSING_MATURITY"])
+        self.assertEqual(asset["known_contractual_coupon_count"], 0)
+        self.assertIsNone(asset["next_known_coupon_date"])
+        self.assertIsNone(asset["days_until_next_known_coupon"])
 
     def test_propagates_missing_core_inputs(self):
         with patch.object(
