@@ -13,7 +13,7 @@ from portfolio_quant import web_experimental_pilots
 
 class ExperimentalRegistryTests(unittest.TestCase):
     def test_registered_pilots_are_unique(self):
-        self.assertEqual(len(validate_registry()), 2)
+        self.assertEqual(len(validate_registry()), 3)
 
     def test_duplicate_isin_is_rejected(self):
         duplicate = replace(

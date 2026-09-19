@@ -6,6 +6,10 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
 from portfolio_quant.experimental_registry import validate_registry
+from portfolio_quant.documented_reference_price import (
+    DISCOUNT_BASIS,
+    documented_reference_price,
+)
 
 from portfolio_quant.web_experimental_pilot import (
     RESEARCH,
@@ -15,6 +19,8 @@ from portfolio_quant.web_experimental_pilot import (
 
 GTLK_SOURCE = RESEARCH / "gtlk_002p_13_2026-09-10.json"
 GTLK_RESULT = RESEARCH / "gtlk_002p_13_pilot_results.json"
+SBER_SOURCE = RESEARCH / "sber_d10_2026-09-10.json"
+SBER_RESULT = RESEARCH / "sber_d10_pilot_results.json"
 
 SCENARIO_FIELDS = (
     "received_through_horizon_rub_per_bond",
@@ -23,6 +29,10 @@ SCENARIO_FIELDS = (
     "gross_total_return_decimal",
 )
 EXPECTED_YIELDS = ("0.10", "0.125", "0.15")
+COUPON_PRICE_LABEL = "Clôture MOEX avec intérêts courus ajoutés"
+DISCOUNT_PRICE_LABEL = (
+    "Clôture MOEX à escompte, sans ajout d’intérêts courus"
+)
 
 
 def _decimal_string(value, field):
@@ -202,11 +212,170 @@ def _read_gtlk():
         "historical_cashflow_availability": "NOT_PROVEN",
         "historical_backtest_validated": False,
         "price_basis": result["price_basis"],
+        "reference_price_label": COUPON_PRICE_LABEL,
         "dirty_price_rub_per_bond": result["dirty_price_rub_per_bond"],
         "coupon_count": 45,
         "principal_event_count": 5,
         "received_coupon_rub_per_bond": str(received_coupon),
         "received_principal_rub_per_bond": str(received_principal),
+        "scenarios": scenarios,
+        "performance_measure": False,
+        "portfolio_risk_measure": False,
+    }
+
+
+def _read_sber_d10():
+    """Validate the archived Sber discount-bond pilot from raw inputs."""
+    raw_source = _read_private_json(SBER_SOURCE)
+    raw_result = _read_private_json(SBER_RESULT)
+
+    source = json.loads(raw_source, parse_float=Decimal)
+    result = json.loads(raw_result)
+    source_hash = hashlib.sha256(raw_source).hexdigest()
+
+    if (
+        not isinstance(source, dict)
+        or not isinstance(source.get("instrument"), dict)
+        or not isinstance(source.get("completeness"), dict)
+        or not isinstance(result, dict)
+    ):
+        raise ValueError("Malformed Sber research document or result")
+
+    if (
+        source["instrument"].get("isin") != "RU000A10DCH3"
+        or source["instrument"].get("coupon_type") != "DISCOUNT_NO_COUPON"
+        or source.get("valuation_date") != "2026-09-10"
+        or source["instrument"].get("source_observation_date") != "2026-09-19"
+        or source["completeness"].get(
+            "as_of_2026_09_10_schedule_publication_proven"
+        ) is not False
+    ):
+        raise ValueError("Unexpected Sber source")
+
+    if (
+        result.get("status") != "EXPERIMENTAL"
+        or result.get("instrument_isin") != "RU000A10DCH3"
+        or result.get("coupon_type") != "DISCOUNT_NO_COUPON"
+        or result.get("valuation_date") != "2026-09-10"
+        or result.get("horizon_date") != "2027-09-10"
+        or result.get("document_observation_date") != "2026-09-19"
+        or result.get("historical_cashflow_availability") != "NOT_PROVEN"
+        or result.get("historical_backtest_validated") is not False
+        or result.get("price_basis") != DISCOUNT_BASIS
+        or result.get("source_json_sha256") != source_hash
+        or result.get("coupon_count") != 0
+        or result.get("principal_event_count") != 1
+        or result.get("principal_reconciled") is not True
+        or result.get("source_accint_missing") is not True
+        or result.get("reference_price_is_discount_quotation") is not True
+        or result.get("reference_price_is_broker_execution_price") is not False
+        or not isinstance(result.get("scenarios"), list)
+        or len(result["scenarios"]) != 3
+    ):
+        raise ValueError("Sber result has not passed structural validation")
+
+    assumptions = result.get("assumptions")
+    if (
+        not isinstance(assumptions, dict)
+        or any(
+            assumptions.get(key) != "NOT_INCLUDED"
+            for key in ("taxes", "fees", "reinvestment")
+        )
+        or assumptions.get("default") != "NOT_MODELED"
+        or assumptions.get("market_yields_are_forecasts") is not False
+        or assumptions.get("price_is_broker_execution_price") is not False
+    ):
+        raise ValueError("Unexpected Sber assumptions")
+
+    # Rebuild the case from the source document.  The archived PASSED flags
+    # are checked above for provenance but are not used as numerical evidence.
+    from datetime import date
+
+    from portfolio_quant.deterministic_total_return import (
+        calculate_total_return,
+    )
+    from portfolio_quant.documented_bond_flows import (
+        build_bond_case,
+        parse_documented_bond_flows,
+    )
+
+    documented = parse_documented_bond_flows(source)
+    if (
+        documented.coupon_count != 0
+        or any(flow.kind == "COUPON" for flow in documented.flows)
+    ):
+        raise ValueError("Sber zero-coupon status is not confirmed")
+
+    market = source["market_reference"]
+    price, basis = documented_reference_price(
+        source,
+        documented,
+        core_close=market.get("canonical_close_price_pct"),
+        core_accint=market.get("accrued_interest"),
+    )
+    if basis != DISCOUNT_BASIS or market.get("accrued_interest") is not None:
+        raise ValueError("Unexpected Sber discount quotation convention")
+    if (
+        _decimal_string(result.get("dirty_price_rub_per_bond"), "dirty price")
+        != price
+    ):
+        raise ValueError("Sber price differs from documentary reference")
+
+    bond = build_bond_case(
+        documented,
+        horizon_date=date(2027, 9, 10),
+        verified_dirty_price=price,
+    )
+    calculated = calculate_total_return(
+        bond, annual_market_yields=EXPECTED_YIELDS
+    )
+
+    scenarios = []
+    for item, expected_yield, computed in zip(
+        result["scenarios"], EXPECTED_YIELDS, calculated, strict=True
+    ):
+        if (
+            not isinstance(item, dict)
+            or item.get("hypothetical_annual_market_yield") != expected_yield
+        ):
+            raise ValueError("Unexpected Sber yield scenario")
+
+        actual = {
+            key: _decimal_string(item.get(key), key)
+            for key in SCENARIO_FIELDS
+        }
+        reference = {
+            "received_through_horizon_rub_per_bond":
+                computed.received_before_or_on_horizon,
+            "theoretical_terminal_price_rub_per_bond":
+                computed.theoretical_terminal_price,
+            "terminal_wealth_rub_per_bond": computed.terminal_wealth,
+            "gross_total_return_decimal": computed.total_return,
+        }
+        if actual != reference:
+            raise ValueError("Sber archived scenario differs from calculation")
+        scenarios.append({
+            "hypothetical_annual_market_yield": expected_yield,
+            **{key: item[key] for key in SCENARIO_FIELDS},
+        })
+
+    return {
+        "status": "EXPERIMENTAL",
+        "instrument_isin": documented.isin,
+        "instrument_label": "Sber D10",
+        "coupon_type": "DISCOUNT_NO_COUPON",
+        "valuation_date": result["valuation_date"],
+        "horizon_date": result["horizon_date"],
+        "document_observation_date": result["document_observation_date"],
+        "historical_cashflow_availability": "NOT_PROVEN",
+        "historical_backtest_validated": False,
+        "price_basis": basis,
+        "reference_price_label": DISCOUNT_PRICE_LABEL,
+        "dirty_price_rub_per_bond": result["dirty_price_rub_per_bond"],
+        "coupon_count": 0,
+        "principal_event_count": 1,
+        "received_coupon_rub_per_bond": "0",
+        "received_principal_rub_per_bond": "0",
         "scenarios": scenarios,
         "performance_measure": False,
         "portfolio_risk_measure": False,
@@ -226,6 +395,7 @@ def _read_ofz():
 
     return {
         **ofz,
+        "reference_price_label": COUPON_PRICE_LABEL,
         "principal_event_count": 1,
         "received_coupon_rub_per_bond":
             ofz["scenarios"][0]["received_through_horizon_rub_per_bond"],
@@ -237,6 +407,7 @@ def _read_ofz():
 READERS = {
     "ofz": _read_ofz,
     "gtlk": _read_gtlk,
+    "sber_d10": _read_sber_d10,
 }
 
 

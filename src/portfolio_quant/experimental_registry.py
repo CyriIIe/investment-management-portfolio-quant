@@ -28,6 +28,12 @@ PILOT_REGISTRY = (
         coupon_type="FIXED_AMORTIZING",
         reader_name="gtlk",
     ),
+    PilotRegistration(
+        isin="RU000A10DCH3",
+        label="Sber D10",
+        coupon_type="DISCOUNT_NO_COUPON",
+        reader_name="sber_d10",
+    ),
 )
 
 

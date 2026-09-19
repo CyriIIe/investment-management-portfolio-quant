@@ -18,6 +18,8 @@ type Pilot = {
   document_observation_date: string
   historical_cashflow_availability: 'NOT_PROVEN'
   historical_backtest_validated: false
+  price_basis: string
+  reference_price_label: string
   dirty_price_rub_per_bond: string
   coupon_count: number
   principal_event_count: number
@@ -58,6 +60,8 @@ function isPilot(value: unknown): value is Pilot {
     typeof v.valuation_date !== 'string' ||
     typeof v.horizon_date !== 'string' ||
     typeof v.document_observation_date !== 'string' ||
+    typeof v.price_basis !== 'string' ||
+    typeof v.reference_price_label !== 'string' ||
     !isNumeric(v.dirty_price_rub_per_bond) ||
     !isNumeric(v.received_coupon_rub_per_bond) ||
     !isNumeric(v.received_principal_rub_per_bond) ||
@@ -173,9 +177,10 @@ export default function ExperimentalPilotPanel({
               {' '}· horizon du {pilot.horizon_date}.
             </p>
             <p>
-              Prix de référence MOEX avec intérêts courus, par obligation :{' '}
+              {pilot.reference_price_label}, par obligation :{' '}
               <strong>{rub(pilot.dirty_price_rub_per_bond)}</strong>.
-              Ce n’est pas un prix d’exécution courtier.
+              Ce n’est ni un prix d’achat du propriétaire ni un prix
+              d’exécution courtier.
             </p>
             <p>
               Flux reçus à l’horizon, par obligation : coupons{' '}
