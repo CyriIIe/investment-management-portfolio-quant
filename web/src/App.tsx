@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import CyclesPanel from './CyclesPanel'
 import WeatherPanel from './WeatherPanel'
+import ChangesPanel from './ChangesPanel'
 import RatesPanel from './RatesPanel'
 import MethodologyPanel from './MethodologyPanel'
 import './App.css'
@@ -265,7 +266,10 @@ function App() {
               </div>
             </>
           ) : section === 'Météo' ? (
-            <WeatherPanel refreshKey={refresh} />
+            <>
+              <WeatherPanel refreshKey={refresh} />
+              <ChangesPanel refreshKey={refresh} />
+            </>
           ) : section === 'Cycles' ? (
             <CyclesPanel refreshKey={refresh} />
           ) : section === 'Données' ? (
