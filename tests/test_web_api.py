@@ -49,6 +49,23 @@ class WebApiTests(unittest.TestCase):
         read.assert_called_once_with()
         handler._respond.assert_called_once_with(200, expected)
 
+    def test_rates_route_returns_observations(self):
+        expected = {
+            "total": 1,
+            "observations": [{
+                "effective_date": "2026-09-18",
+                "rate_percent": "16.00",
+                "collected_at_utc": "2026-09-19T07:00:00+00:00",
+            }],
+        }
+        handler = self.make_handler(path="/api/rates")
+
+        with patch.object(web_api, "read_rates", return_value=expected) as read:
+            handler.do_GET()
+
+        read.assert_called_once_with()
+        handler._respond.assert_called_once_with(200, expected)
+
     def test_unexpected_host_is_refused_before_database_read(self):
         handler = self.make_handler(host="example.com:8765")
 

@@ -5,6 +5,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlsplit
 
 from portfolio_quant.web_cycles import read_cycles
+from portfolio_quant.web_rates import read_rates
 from portfolio_quant.web_overview import read_overview
 
 
@@ -30,6 +31,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
             reader = read_overview
         elif route == "/api/cycles":
             reader = read_cycles
+        elif route == "/api/rates":
+            reader = read_rates
         else:
             self._respond(404, {"error": "Not found"})
             return

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import CyclesPanel from './CyclesPanel'
+import RatesPanel from './RatesPanel'
 import './App.css'
 
 type Section = 'Vue d’ensemble' | 'Cycles' | 'Données' | 'Méthodologie'
@@ -259,6 +260,8 @@ function App() {
             </>
           ) : section === 'Cycles' ? (
             <CyclesPanel refreshKey={refresh} />
+          ) : section === 'Données' ? (
+            <RatesPanel refreshKey={refresh} />
           ) : (
             <section className="panel section-panel">
               <div className="panel-kicker">MODULE EN PRÉPARATION</div>
