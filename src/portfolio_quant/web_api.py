@@ -14,6 +14,7 @@ from portfolio_quant.web_allocation import read_allocation
 from portfolio_quant.web_asset_cashflows import read_asset_cashflows
 from portfolio_quant.web_asset_prices import read_asset_prices
 from portfolio_quant.web_experimental_pilot import read_experimental_pilot
+from portfolio_quant.web_experimental_pilots import read_experimental_pilots
 
 
 HOST = "127.0.0.1"
@@ -52,6 +53,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
             reader = read_asset_prices
         elif route == "/api/experimental-pilot":
             reader = read_experimental_pilot
+        elif route == "/api/experimental-pilots":
+            reader = read_experimental_pilots
         else:
             try:
                 content_type, body = read_static(route)
