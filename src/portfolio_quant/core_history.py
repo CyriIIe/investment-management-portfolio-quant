@@ -67,3 +67,44 @@ def load_historical_snapshot(
     }
 
     return parse_core_positions(payload)
+
+
+def load_previous_historical_snapshot(
+    before_date: date,
+    *,
+    database: Path = CORE_DATABASE,
+):
+    """Find the preceding dated snapshot; never select a future date."""
+    if type(before_date) is not date:
+        raise ValueError("Expected a portfolio date")
+
+    database = Path(database)
+    if (
+        database.is_symlink()
+        or database.parent.is_symlink()
+        or not database.is_file()
+    ):
+        raise RuntimeError("CORE database is missing or has an unsafe path")
+
+    with closing(sqlite3.connect(
+        database.as_uri() + "?mode=ro",
+        uri=True,
+        timeout=2,
+    )) as connection:
+        connection.execute("PRAGMA query_only = ON")
+        row = connection.execute(
+            """
+            SELECT MAX(as_of_date)
+            FROM portfolio_security_snapshots
+            WHERE as_of_date < ?
+            """,
+            (before_date.isoformat(),),
+        ).fetchone()
+
+    if row is None or row[0] is None:
+        raise ValueError("No preceding CORE snapshot")
+
+    return load_historical_snapshot(
+        date.fromisoformat(row[0]),
+        database=database,
+    )

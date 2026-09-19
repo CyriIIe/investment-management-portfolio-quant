@@ -57,6 +57,27 @@ class CoreHistoryTests(unittest.TestCase):
         )
         self.assertEqual(snapshot.positions[0].source_observation_id, 101)
 
+    def test_previous_snapshot_is_selected(self):
+        from portfolio_quant.core_history import (
+            load_previous_historical_snapshot,
+        )
+
+        result = load_previous_historical_snapshot(
+            date(2026, 9, 10), database=self.database
+        )
+        self.assertEqual(result.as_of_date, date(2026, 9, 9))
+        self.assertEqual(result.positions[0].source_observation_id, 101)
+
+    def test_previous_snapshot_missing_is_rejected(self):
+        from portfolio_quant.core_history import (
+            load_previous_historical_snapshot,
+        )
+
+        with self.assertRaisesRegex(ValueError, "No preceding"):
+            load_previous_historical_snapshot(
+                date(2026, 9, 9), database=self.database
+            )
+
     def test_missing_date_is_rejected(self):
         with self.assertRaisesRegex(ValueError, "No CORE snapshot"):
             load_historical_snapshot(
