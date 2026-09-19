@@ -7,6 +7,7 @@ from urllib.parse import urlsplit
 from portfolio_quant.web_cycles import read_cycles
 from portfolio_quant.web_rates import read_rates
 from portfolio_quant.web_overview import read_overview
+from portfolio_quant.web_static import read_static
 
 
 HOST = "127.0.0.1"
@@ -34,7 +35,16 @@ class DashboardHandler(BaseHTTPRequestHandler):
         elif route == "/api/rates":
             reader = read_rates
         else:
-            self._respond(404, {"error": "Not found"})
+            try:
+                content_type, body = read_static(route)
+            except FileNotFoundError:
+                self._respond(404, {"error": "Not found"})
+                return
+            except (RuntimeError, OSError):
+                self._respond(503, {"error": "Dashboard unavailable"})
+                return
+
+            self._respond_static(content_type, body)
             return
 
         try:
@@ -44,6 +54,16 @@ class DashboardHandler(BaseHTTPRequestHandler):
             return
 
         self._respond(200, data)
+
+    def _respond_static(self, content_type: str, body: bytes):
+        self.send_response(200)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("Referrer-Policy", "no-referrer")
+        self.end_headers()
+        self.wfile.write(body)
 
     def _respond(self, status: int, data: dict):
         body = json.dumps(

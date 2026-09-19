@@ -66,6 +66,49 @@ class WebApiTests(unittest.TestCase):
         read.assert_called_once_with()
         handler._respond.assert_called_once_with(200, expected)
 
+    def test_homepage_uses_compiled_files(self):
+        handler = self.make_handler(path="/")
+        handler._respond_static = Mock()
+
+        with patch.object(
+            web_api,
+            "read_static",
+            return_value=("text/html", b"<h1>Quant</h1>"),
+        ) as read:
+            handler.do_GET()
+
+        read.assert_called_once_with("/")
+        handler._respond_static.assert_called_once_with(
+            "text/html", b"<h1>Quant</h1>"
+        )
+        handler._respond.assert_not_called()
+
+    def test_missing_compiled_asset_returns_404(self):
+        handler = self.make_handler(path="/private.txt")
+
+        with patch.object(
+            web_api, "read_static", side_effect=FileNotFoundError()
+        ):
+            handler.do_GET()
+
+        handler._respond.assert_called_once_with(
+            404, {"error": "Not found"}
+        )
+
+    def test_missing_build_returns_503(self):
+        handler = self.make_handler(path="/")
+
+        with patch.object(
+            web_api,
+            "read_static",
+            side_effect=RuntimeError("private path"),
+        ):
+            handler.do_GET()
+
+        handler._respond.assert_called_once_with(
+            503, {"error": "Dashboard unavailable"}
+        )
+
     def test_unexpected_host_is_refused_before_database_read(self):
         handler = self.make_handler(host="example.com:8765")
 
