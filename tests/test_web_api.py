@@ -66,6 +66,37 @@ class WebApiTests(unittest.TestCase):
         read.assert_called_once_with()
         handler._respond.assert_called_once_with(200, expected)
 
+    def test_weather_route_returns_descriptive_aggregates(self):
+        expected = {
+            "portfolio_date": "2026-09-10",
+            "position_count": 2,
+            "complete_cashflows": False,
+            "portfolio_risk_measure": False,
+        }
+        handler = self.make_handler(path="/api/weather")
+
+        with patch.object(
+            web_api, "read_weather", return_value=expected
+        ) as read:
+            handler.do_GET()
+
+        read.assert_called_once_with()
+        handler._respond.assert_called_once_with(200, expected)
+
+    def test_weather_failure_does_not_expose_exception(self):
+        handler = self.make_handler(path="/api/weather")
+
+        with patch.object(
+            web_api,
+            "read_weather",
+            side_effect=RuntimeError("private CORE details"),
+        ):
+            handler.do_GET()
+
+        handler._respond.assert_called_once_with(
+            503, {"error": "Overview unavailable"}
+        )
+
     def test_homepage_uses_compiled_files(self):
         handler = self.make_handler(path="/")
         handler._respond_static = Mock()
