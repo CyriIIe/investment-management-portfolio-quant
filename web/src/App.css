@@ -293,3 +293,32 @@ h2 { margin: 10px 0 0; color: #e8f0f5; font-size: 19px; font-weight: 630; letter
   outline: 2px solid #79e6cd;
   outline-offset: 3px;
 }
+
+/* Experimental cycle history */
+.cycles-list {
+  display: grid;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.cycle-entry {
+  padding: 20px;
+  border: 1px solid #2a3c46;
+  border-radius: 10px;
+  background: linear-gradient(120deg, #19252f, #121e27);
+}
+
+.cycle-entry h3 {
+  margin: 11px 0;
+  color: #edf6f4;
+  font-size: 17px;
+  font-weight: 650;
+}
+
+.cycle-entry p {
+  margin: 8px 0 0;
+  color: #9aadb8;
+  font-size: 12px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}

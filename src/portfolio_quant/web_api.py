@@ -4,6 +4,7 @@ import json
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlsplit
 
+from portfolio_quant.web_cycles import read_cycles
 from portfolio_quant.web_overview import read_overview
 
 
@@ -24,12 +25,17 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self._respond(403, {"error": "Forbidden"})
             return
 
-        if urlsplit(self.path).path != "/api/overview":
+        route = urlsplit(self.path).path
+        if route == "/api/overview":
+            reader = read_overview
+        elif route == "/api/cycles":
+            reader = read_cycles
+        else:
             self._respond(404, {"error": "Not found"})
             return
 
         try:
-            data = read_overview()
+            data = reader()
         except Exception:
             self._respond(503, {"error": "Overview unavailable"})
             return

@@ -29,6 +29,26 @@ class WebApiTests(unittest.TestCase):
         read.assert_called_once_with()
         handler._respond.assert_called_once_with(200, expected)
 
+    def test_cycles_route_returns_metadata_only(self):
+        expected = {
+            "total": 1,
+            "cycles": [{
+                "identity_prefix": "a" * 16,
+                "created_at_utc": "2026-09-19T07:00:00+00:00",
+                "model_name": "fictional-known-coupon-paths",
+                "calibrated_to_market": False,
+                "complete_portfolio_valuation": False,
+                "portfolio_risk_measure": False,
+            }],
+        }
+        handler = self.make_handler(path="/api/cycles")
+
+        with patch.object(web_api, "read_cycles", return_value=expected) as read:
+            handler.do_GET()
+
+        read.assert_called_once_with()
+        handler._respond.assert_called_once_with(200, expected)
+
     def test_unexpected_host_is_refused_before_database_read(self):
         handler = self.make_handler(host="example.com:8765")
 
